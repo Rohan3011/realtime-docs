@@ -5,13 +5,13 @@ import path from "path";
 import morgan from "morgan";
 import router from "@/routes";
 import log from "@/utils/logger";
-import { connectToDB } from "@/utils/db";
-import allowCors from "./middlewares/allow-cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 dotenv.config();
 
-const app = express();
-const port = process.env.PORT!;
+export const app = express();
+const port = process.env.PORT;
 
 //middlewares
 app.use(
@@ -31,7 +31,38 @@ app.use(express.static(path.join(__dirname, "../../client/dist")));
 // routes definition
 app.use("/api", router);
 
-app.listen(port, () => {
+const httpServer = createServer(app);
+
+export const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL,
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  log.info(`User connected with ID: ${socket.id}`);
+
+  socket.on("ping", () => {
+    log.info("ping");
+    const dummyData = {
+      string: "this is a test string",
+      integer: 42,
+      array: [1, 2, 3, "test", null],
+      float: 3.14159,
+      object: {
+        "first-child": true,
+        "second-child": false,
+        "last-child": null,
+      },
+      string_number: "1234",
+      date: "2023-12-19T14:15:09.606Z",
+    };
+    socket.emit("pong", dummyData);
+  });
+});
+
+httpServer.listen(port, () => {
   log.info(`Server is running at http://localhost:${port}`);
-  connectToDB();
+  // connectToDB();
 });
